@@ -1,74 +1,343 @@
-<!DOCTYPE html>
-<html lang="ar">
+<!doctype html>
+<html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>تجربة AR</title>
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>تجربة AR: كرسي في الغرفة + جزمة فوق القدم (مجاني)</title>
+  <meta name="description" content="تجربة واقع معزز مجانية: عرض كرسي ثلاثي الأبعاد في الغرفة، وتجربة جزمة فوق القدم بتتبّع بسيط." />
   <style>
-    body {
-      text-align: center;
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      margin: 0;
-      padding: 20px;
+    :root { --bg:#0f1115; --card:#161a22; --muted:#9aa4b2; --acc:#2dd4bf; --radius:14px; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    header{padding:18px 20px;border-bottom:1px solid #222833;display:flex;gap:10px;align-items:center;justify-content:space-between}
+    header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.2px}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab-btn{background:#1e2430;color:#cfd6e4;border:1px solid #2a3242;padding:10px 14px;border-radius:10px;cursor:pointer}
+    .tab-btn.active{background:var(--acc);color:#062926;border-color:transparent;font-weight:700}
+    main{padding:18px}
+    .panel{display:none}
+    .panel.active{display:block}
+    .card{background:var(--card);border:1px solid #242b38;border-radius:var(--radius);padding:16px}
+    .grid{display:grid;grid-template-columns:1fr;gap:16px}
+    .hint{color:var(--muted);font-size:14px;line-height:1.6}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    button, .link-btn{
+      appearance:none;background:#2b3344;color:#dbe3f3;border:1px solid #364056;border-radius:10px;
+      padding:10px 14px;cursor:pointer
     }
-    h1 {
-      color: #333;
+    button.primary{background:var(--acc);color:#062926;border-color:transparent;font-weight:700}
+    .badge{font-size:12px;color:#a7b2c6;background:#232a36;border:1px solid #2d3748;border-radius:999px;padding:4px 10px}
+    /* model-viewer wrapper */
+    .mv-wrap{border-radius:12px;overflow:hidden;border:1px solid #283142}
+    model-viewer{width:100%;height:70vh;background:#0b0e15}
+    /* shoe try-on */
+    .camera-wrap{position:relative;width:100%;max-width:900px;margin-inline:auto;border-radius:12px;overflow:hidden;border:1px solid #283142}
+    video#cam{width:100%;height:auto;display:block;transform:scaleX(-1);} /* mirror view */
+    canvas#debug{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;transform:scaleX(-1);}
+    img#shoeOverlay{
+      position:absolute;left:0;top:0;width:220px;opacity:0.95;pointer-events:none;
+      display:none; transform-origin:center center; /* will be rotated/scaled/translated */
+      filter:drop-shadow(0 10px 18px rgba(0,0,0,.35))
     }
-    .btn {
-      padding: 10px 20px;
-      margin: 10px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    .btn:hover {
-      background-color: #0056b3;
-    }
-    model-viewer {
-      width: 100%;
-      height: 500px;
-      background: white;
-      border-radius: 10px;
-      margin-top: 20px;
-    }
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .note{font-size:12px;color:#a9b3c4}
+    footer{padding:16px;color:#808aa0;text-align:center;border-top:1px solid #222833}
+    a{color:#7dd3fc;text-decoration:none}
   </style>
+
+  <!-- model-viewer (AR للكرسي) -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <script nomodule src="https://unpkg.com/@google/model-viewer/dist/model-viewer-legacy.js"></script>
+
+  <!-- MediaPipe Pose (مجاني) + أدوات الكاميرا والرسم -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 </head>
 <body>
 
-  <h1>تجربة الواقع المعزز</h1>
-  <button class="btn" onclick="loadModel('chair')">عرض كرسي في الغرفة</button>
-  <button class="btn" onclick="loadModel('shoe')">عرض جزمة</button>
+  <header>
+    <h1>تجربة واقع معزز مجانية</h1>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="chair">AR كرسي في الغرفة</button>
+      <button class="tab-btn" data-tab="shoe">تجربة جزمة (تتبُّع قدم)</button>
+    </div>
+  </header>
 
-  <model-viewer id="viewer"
-    ar
-    ar-modes="scene-viewer quick-look webxr"
-    camera-controls
-    autoplay
-    shadow-intensity="1">
-  </model-viewer>
+  <main>
+    <!-- Panel 1: كرسي ثلاثي الأبعاد داخل الغرفة -->
+    <section id="panel-chair" class="panel active">
+      <div class="grid">
+        <div class="card">
+          <div class="row">
+            <span class="badge">مجاني • يعمل على أندرويد و iOS</span>
+          </div>
+          <p class="hint">
+            اضغط زر <b>AR</b> ثم وجّه الجوال نحو الأرض لوضع الكرسي.  
+            على أندرويد يُفتح Scene Viewer، وعلى iOS يُفتح Quick Look.  
+          </p>
+          <div class="mv-wrap">
+            <model-viewer id="chairMV"
+              src="https://modelviewer.dev/shared-assets/models/Chair.glb"
+              ios-src="https://modelviewer.dev/shared-assets/models/Chair.usdz"
+              ar ar-modes="webxr scene-viewer quick-look"
+              camera-controls environment-image="neutral"
+              exposure="0.9" shadow-intensity="1"
+              poster="https://modelviewer.dev/assets/posters/shishkebab.png"
+              alt="كرسي ثلاثي الأبعاد للتجربة داخل الغرفة">
+              <button slot="ar-button" class="primary" style="position:absolute;bottom:16px;left:16px;">
+                وضعه في الغرفة (AR)
+              </button>
+              <div class="note" slot="progress-bar" style="position:absolute;left:16px;bottom:56px;">
+                تحميل النموذج...
+              </div>
+            </model-viewer>
+          </div>
+          <div class="controls">
+            <button id="swapChair">تبديل لكرسي آخر</button>
+            <span class="note">نماذج من <a href="https://modelviewer.dev/" target="_blank" rel="noopener">modelviewer.dev</a></span>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  <script>
-    const viewer = document.getElementById('viewer');
+    <!-- Panel 2: تجربة الجزمة مع تتبع قدم (تجريبي مجاني) -->
+    <section id="panel-shoe" class="panel">
+      <div class="card">
+        <div class="row">
+          <span class="badge">تجريبي مجاني</span>
+          <span class="note">يعتمد على MediaPipe Pose؛ قد يحتاج إضاءة جيدة ووضوح القدم</span>
+        </div>
+        <div class="camera-wrap">
+          <video id="cam" playsinline></video>
+          <canvas id="debug"></canvas>
+          <!-- صورة جزمة PNG شفافة من مصدر عام (يمكنك استبدال الرابط) -->
+          <img id="shoeOverlay"
+               src="https://upload.wikimedia.org/wikipedia/commons/6/6a/Sneaker_icon_transparent.png"
+               alt="Overlay Shoe">
+        </div>
+        <div class="controls">
+          <button id="startShoe" class="primary">بدء الكاميرا وتتبع القدم</button>
+          <button id="stopShoe">إيقاف</button>
+          <select id="footSelect">
+            <option value="auto">تلقائي (أقرب قدم)</option>
+            <option value="left">القدم اليسرى</option>
+            <option value="right">القدم اليمنى</option>
+          </select>
+          <label class="note">
+            تحكم يدوي بالحجم:
+            <input id="scaleRange" type="range" min="0.6" max="2.0" step="0.02" value="1">
+          </label>
+        </div>
+        <p class="hint" style="margin-top:10px">
+          💡 نصيحة: ضع الجوال على حامل ووجّه الكاميرا لقدميك. الأفضل أن تكون القدم ظاهرة بالكامل في الكادر.
+        </p>
+      </div>
+    </section>
+  </main>
 
-    function loadModel(type) {
-      if (type === 'chair') {
-        viewer.src = "https://modelviewer.dev/shared-assets/models/Chair.glb";
-        viewer.iosSrc = "https://modelviewer.dev/shared-assets/models/Chair.usdz";
-      } 
-      else if (type === 'shoe') {
-        viewer.src = "https://cdn.shopify.com/s/files/1/0680/4150/7113/files/adidas_shoe.glb?v=1669999999";
-        viewer.iosSrc = "https://cdn.shopify.com/s/files/1/0680/4150/7113/files/adidas_shoe.usdz?v=1669999999";
-      }
+  <footer>
+    هذا نموذج تجريبي مجاني. لتتبّع دقيق ثلاثي الأبعاد مثل تطبيقات الشركات، ستحتاج SDK احترافي مدفوع.
+  </footer>
+
+<script>
+  // تبويب الواجهات
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panels = {
+    chair: document.getElementById('panel-chair'),
+    shoe: document.getElementById('panel-shoe')
+  };
+  tabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      tabs.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      Object.values(panels).forEach(p=>p.classList.remove('active'));
+      panels[tab].classList.add('active');
+    });
+  });
+
+  // تبديل نموذج الكرسي
+  const chairMV = document.getElementById('chairMV');
+  const swapBtn = document.getElementById('swapChair');
+  let altChair = false;
+  swapBtn.addEventListener('click', ()=>{
+    if(!altChair){
+      chairMV.src = "https://modelviewer.dev/shared-assets/models/ChairRed.glb";
+      chairMV.setAttribute('ios-src', "https://modelviewer.dev/shared-assets/models/Chair.usdz"); // نفس USDZ للتجربة
+      swapBtn.textContent = "رجوع للكرسي الأول";
+    } else {
+      chairMV.src = "https://modelviewer.dev/shared-assets/models/Chair.glb";
+      chairMV.setAttribute('ios-src', "https://modelviewer.dev/shared-assets/models/Chair.usdz");
+      swapBtn.textContent = "تبديل لكرسي آخر";
+    }
+    altChair = !altChair;
+  });
+
+  /* ====== تجربة الجزمة (MediaPipe Pose) ====== */
+  const videoEl = document.getElementById('cam');
+  const canvasEl = document.getElementById('debug');
+  const ctx = canvasEl.getContext('2d');
+  const shoeImg = document.getElementById('shoeOverlay');
+  const startBtn = document.getElementById('startShoe');
+  const stopBtn  = document.getElementById('stopShoe');
+  const footSelect = document.getElementById('footSelect');
+  const scaleRange = document.getElementById('scaleRange');
+
+  let camera = null;
+  let pose = null;
+  let running = false;
+
+  // أدوات مساعدة
+  function setCanvasSizeToVideo() {
+    const rect = videoEl.getBoundingClientRect();
+    canvasEl.width = rect.width;
+    canvasEl.height = rect.height;
+  }
+
+  // تحويل إحداثيات normalized [0..1] إلى بكسل داخل الـ <video> المعكوس
+  function toPixel(xNorm, yNorm) {
+    // لأننا عكسنا الفيديو أفقياً (mirror), x نعكسه
+    const x = (1 - xNorm) * canvasEl.width;
+    const y = yNorm * canvasEl.height;
+    return {x, y};
+  }
+
+  // يعيد اختيارات معقولة لنقاط القدم
+  // BlazePose (33 landmark): نفترض الفهارس التالية:
+  // left_ankle=27, right_ankle=28, left_heel=29, right_heel=30, left_foot_index=31, right_foot_index=32
+  function getFootPoints(landmarks, which='auto') {
+    if (!landmarks || landmarks.length < 33) return null;
+
+    const L = {
+      ankle: landmarks[27], heel: landmarks[29], toe: landmarks[31]
+    };
+    const R = {
+      ankle: landmarks[28], heel: landmarks[30], toe: landmarks[32]
+    };
+
+    function footScore(p) {
+      // كلما كانت Z أصغر (أقرب للكاميرا) وبمركز الشاشة، نعطيه وزن أعلى
+      const dx = p.ankle.x - 0.5, dy = p.ankle.y - 0.5;
+      const centerDist = Math.hypot(dx, dy);
+      return (1 - centerDist) + (p.ankle.visibility || 0) + (p.toe.visibility || 0);
     }
 
-    // تحميل كرسي افتراضياً عند البداية
-    loadModel('chair');
-  </script>
+    let selected = null;
+    if (which === 'left') selected = L;
+    else if (which === 'right') selected = R;
+    else {
+      selected = (footScore(L) >= footScore(R)) ? L : R;
+    }
+    return selected;
+  }
 
+  // وضع صورة الجزمة فوق القدم
+  function placeShoe(landmarks, manualScale = 1) {
+    const foot = getFootPoints(landmarks, footSelect.value);
+    if (!foot || !foot.ankle || !foot.toe) {
+      shoeImg.style.display = 'none';
+      return;
+    }
+
+    // زاوية القدم من خط (الكاحل -> إصبع القدم)
+    const dx = (foot.toe.x - foot.ankle.x);
+    const dy = (foot.toe.y - foot.ankle.y);
+    const angleRad = Math.atan2(dy, dx);
+    const angleDeg = -angleRad * 180 / Math.PI; // سالب بسبب الـ mirror
+
+    // مقياس بالحجم: المسافة بين الكاحل والأصبع نسبةً إلى عرض الكادر
+    const dist = Math.hypot(dx, dy); // normalized
+    const basePixels = dist * canvasEl.width; // تقريب لحجم القدم بالبكسل
+    const scale = Math.max(0.6, Math.min(2.0, (basePixels / 160))) * parseFloat(manualScale);
+
+    // مركز التثبيت: نقطة منتصف بين الكاحل والأصبع
+    const cx = (foot.ankle.x + foot.toe.x) / 2;
+    const cy = (foot.ankle.y + foot.toe.y) / 2;
+    const {x:px, y:py} = toPixel(cx, cy);
+
+    const w = 220 * scale; // عرض الصورة بعد التحجيم
+    const h = 100 * scale; // ارتفاع تقريبي
+    // نحاول إنزالها قليلاً للأسفل لتجلس على القدم
+    const offsetY = 0.02 * canvasEl.height;
+
+    shoeImg.style.display = 'block';
+    shoeImg.style.width = `${w}px`;
+    shoeImg.style.height = `${h}px`;
+    shoeImg.style.transform = `translate(${px - w/2}px, ${py - h/2 + offsetY}px) rotate(${angleDeg}deg)`;
+  }
+
+  // تشغيل MediaPipe Pose
+  async function initPose() {
+    if (pose) return;
+    pose = new Pose.Pose({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+    });
+    pose.setOptions({
+      modelComplexity: 1,
+      smoothLandmarks: true,
+      enableSegmentation: false,
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.6,
+    });
+    pose.onResults(onResults);
+  }
+
+  function onResults(results) {
+    // رسم (اختياري) لمساعدة التصحيح
+    setCanvasSizeToVideo();
+    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+    if (results.poseLandmarks) {
+      // خطوط/نقاط مساعدة بسيطة
+      const lms = results.poseLandmarks;
+      // استخراج قدم مختارة و رسم خط بين الكاحل والأصبع
+      const foot = getFootPoints(lms, footSelect.value);
+      if (foot && foot.ankle && foot.toe) {
+        const p1 = toPixel(foot.ankle.x, foot.ankle.y);
+        const p2 = toPixel(foot.toe.x, foot.toe.y);
+        ctx.strokeStyle = 'rgba(45,212,191,0.9)';
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        ctx.fillStyle = 'rgba(125,211,252,0.95)';
+        ctx.beginPath(); ctx.arc(p1.x, p1.y, 6, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(p2.x, p2.y, 6, 0, Math.PI*2); ctx.fill();
+      }
+      placeShoe(lms, scaleRange.value);
+    } else {
+      shoeImg.style.display = 'none';
+    }
+  }
+
+  async function startCamera() {
+    await initPose();
+    // إعداد الكاميرا عبر MediaPipe CameraUtils
+    camera = new Camera(videoEl, {
+      onFrame: async () => {
+        if (!pose) return;
+        await pose.send({image: videoEl});
+      },
+      width: 640, height: 480
+    });
+    await camera.start();
+    running = true;
+    setCanvasSizeToVideo();
+  }
+
+  async function stopCamera() {
+    running = false;
+    if (camera && camera.stop) {
+      await camera.stop();
+    }
+    shoeImg.style.display = 'none';
+    ctx.clearRect(0,0,canvasEl.width, canvasEl.height);
+  }
+
+  startBtn.addEventListener('click', startCamera);
+  stopBtn.addEventListener('click', stopCamera);
+  scaleRange.addEventListener('input', ()=>{/* سيُؤخذ بالحسبان عند الإطار القادم */});
+
+  // إعادة ضبط قياس اللوحة عند تغيير حجم الشاشة
+  window.addEventListener('resize', setCanvasSizeToVideo, {passive:true});
+</script>
 </body>
 </html>
