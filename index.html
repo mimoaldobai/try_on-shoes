@@ -3,51 +3,51 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>AR: كرسي في الغرفة + تتبع جزمة (محسّن)</title>
-  <meta name="description" content="تجربة واقع معزز: كرسي في الغرفة + تتبع جزمة تجريبي باستخدام MediaPipe (محسن)." />
+  <title>AR: كرسي في الغرفة + تتبّع جزمة (مصحح)</title>
+  <meta name="description" content="تجربة AR: كرسي في الغرفة + تتبّع جزمة باستخدام MediaPipe (نسخة مصححة)." />
   <style>
     :root{--bg:#0b1220;--card:#0f1724;--muted:#9aa4b2;--accent:#2dd4bf}
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:#e6eef6;font-family:system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
-    header{padding:14px 18px;border-bottom:1px solid #0e1622;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    body{margin:0;background:var(--bg);color:#e6eef6;font-family:system-ui,Segoe UI,Roboto,Arial}
+    header{padding:14px 18px;border-bottom:1px solid #0e1622;display:flex;align-items:center;justify-content:space-between}
     header h1{margin:0;font-size:15px}
     .tabs{display:flex;gap:8px}
-    .tab-btn{background:#121826;color:#cfe6f3;border:1px solid #1d2430;padding:8px 12px;border-radius:10px;cursor:pointer;font-size:14px}
-    .tab-btn.active{background:var(--accent);color:#03221f;font-weight:700}
-    main{padding:18px}
+    .tab-btn{background:#121826;color:#cfe6f3;padding:8px 12px;border-radius:10px;cursor:pointer}
+    .tab-btn.active{background:var(--accent);color:#03221f}
+    main{padding:16px}
     .panel{display:none}
     .panel.active{display:block}
     .card{background:linear-gradient(180deg,#0d1420,#0b1118);border-radius:12px;padding:14px;border:1px solid #1b2430}
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-    button,select,input[type=range]{appearance:none;border-radius:10px;padding:8px 12px;border:1px solid #26313f;background:#111827;color:#e6eef6;cursor:pointer}
-    button.primary{background:var(--accent);color:#03221f;border:none}
+    button,select,input[type=range]{border-radius:10px;padding:8px 12px;border:1px solid #26313f;background:#111827;color:#e6eef6;cursor:pointer}
+    button.primary{background:var(--accent);border:none;color:#03221f}
     .hint{color:var(--muted);font-size:13px}
     .mv-wrap{border-radius:12px;overflow:hidden;border:1px solid #19222e;margin-top:12px}
-    model-viewer{width:100%;height:64vh;background:#071018;display:block}
-    .camera-wrap{position:relative;width:100%;max-width:960px;margin:12px auto;border-radius:12px;overflow:hidden;border:1px solid #19222e;background:#000}
+    model-viewer{width:100%;height:60vh;background:#071018;display:block}
+    .camera-wrap{position:relative;width:100%;max-width:920px;margin:12px auto;border-radius:12px;overflow:hidden;border:1px solid #19222e;background:#000}
     video#cam{width:100%;height:auto;display:block;transform:scaleX(-1)} /* mirror */
     canvas#debug{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;transform:scaleX(-1)}
     img#shoeOverlay{position:absolute;left:0;top:0;display:none;pointer-events:none;transform-origin:center center;filter:drop-shadow(0 12px 24px rgba(0,0,0,.5))}
     .status{font-size:13px;color:var(--muted)}
-    footer{padding:10px;text-align:center;color:#718096;border-top:1px solid #0e1622;margin-top:16px}
     .warning{color:#ffb86b}
-    @media (max-width:600px){ model-viewer{height:58vh} }
+    footer{padding:10px;text-align:center;color:#718096;border-top:1px solid #0e1622;margin-top:16px}
   </style>
 
-  <!-- model-viewer للكرسي -->
+  <!-- model-viewer -->
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <script nomodule src="https://unpkg.com/@google/model-viewer/dist/model-viewer-legacy.js"></script>
 
-  <!-- MediaPipe -->
+  <!-- MediaPipe (نحمّل الملفات عبر سكربت عادي) -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 </head>
 <body>
   <header>
-    <h1>تجربة AR محسّنة — كرسي في الغرفة & تتبّع جزمة</h1>
+    <h1>تجربة AR — كرسي & تتبّع جزمة (مصحح)</h1>
     <div class="tabs">
       <button class="tab-btn active" data-tab="chair">AR كرسي</button>
-      <button class="tab-btn" data-tab="shoe">تتبع جزمة</button>
+      <button class="tab-btn" data-tab="shoe">تتبّع جزمة</button>
     </div>
   </header>
 
@@ -55,10 +55,8 @@
     <!-- AR كرسي -->
     <section id="panel-chair" class="panel active">
       <div class="card">
-        <div class="row">
-          <div class="status">وضع الكرسي في الغرفة — اضغط زر AR ثم حرّك الكاميرا لاختيار سطح</div>
-        </div>
-        <div class="mv-wrap" style="margin-top:12px">
+        <div class="status">وضع كرسي في الغرفة — اضغط زر AR ثم حرك الكاميرا لاختيار سطح.</div>
+        <div class="mv-wrap">
           <model-viewer id="chairMV"
             src="https://modelviewer.dev/shared-assets/models/Chair.glb"
             ios-src="https://modelviewer.dev/shared-assets/models/Chair.usdz"
@@ -66,9 +64,9 @@
             ar ar-modes="webxr scene-viewer quick-look"
             camera-controls environment-image="neutral"
             poster="https://modelviewer.dev/assets/posters/shishkebab.png"
-            shadow-intensity="1" style="display:block"></model-viewer>
+            shadow-intensity="1"></model-viewer>
         </div>
-        <div class="controls">
+        <div class="controls" style="margin-top:10px">
           <button id="swapChair">تبديل نموذج</button>
           <div class="hint">نماذج GLB مجانية من modelviewer.dev</div>
         </div>
@@ -78,22 +76,20 @@
     <!-- Shoe try-on -->
     <section id="panel-shoe" class="panel">
       <div class="card">
-        <div class="row" style="justify-content:space-between">
-          <div>
-            <span class="status">تجريبي: تتبّع الجزمة باستخدام MediaPipe (المجاني)</span>
-          </div>
-          <div class="warning" id="secureWarn" style="display:none">ملاحظة: الوصول للكاميرا يتطلب HTTPS</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="status">تجريبي: تتبع القدم باستخدام MediaPipe</div>
+          <div id="secureWarn" class="warning" style="display:none">ملاحظة: يتطلب HTTPS للوصول للكاميرا</div>
         </div>
 
-        <div style="margin-top:10px" class="controls">
+        <div class="controls" style="margin-top:12px">
           <label>كاميرا:
             <select id="cameraSelect">
-              <option value="environment">الخلفية (مفضل)</option>
+              <option value="environment">الخلفية</option>
               <option value="user">الأمامية</option>
             </select>
           </label>
 
-          <label>دقّة:
+          <label>دقة:
             <select id="resSelect">
               <option value="640x480">480p</option>
               <option value="1280x720" selected>720p</option>
@@ -102,6 +98,337 @@
           </label>
 
           <label>تنعيم:
+            <select id="smoothSelect">
+              <option value="0.85">قوي</option>
+              <option value="0.7" selected>متوسط</option>
+              <option value="0.45">خفيف</option>
+              <option value="0">لا تنعيم</option>
+            </select>
+          </label>
+
+          <label>تشخيص:
+            <select id="debugSelect"><option value="off">إيقاف</option><option value="on" selected>تشغيل</option></select>
+          </label>
+        </div>
+
+        <div style="margin-top:12px" class="camera-wrap">
+          <video id="cam" playsinline autoplay muted></video>
+          <canvas id="debug"></canvas>
+          <!-- استخدم صورة PNG شفافة أفضل إن وُجدت -->
+          <img id="shoeOverlay" src="https://upload.wikimedia.org/wikipedia/commons/6/6a/Sneaker_icon_transparent.png" alt="shoe overlay">
+        </div>
+
+        <div class="controls" style="margin-top:12px">
+          <button id="startShoe" class="primary">تشغيل الكاميرا</button>
+          <button id="stopShoe">إيقاف</button>
+
+          <label>قدم:
+            <select id="footSelect">
+              <option value="auto">تلقائي (أقرب)</option>
+              <option value="left">يسرى</option>
+              <option value="right">يمنى</option>
+            </select>
+          </label>
+
+          <label>تكبير:
+            <input id="scaleRange" type="range" min="0.6" max="2.2" step="0.02" value="1">
+          </label>
+        </div>
+
+        <div class="hint" style="margin-top:10px">نصيحة: ضع الهاتف على حامل ووجّه الكاميرا لقدميك. ضوء جيد يحسّن النتائج.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>نسخة تجريبية مجانية — لتحسين احترافي يلزم SDK تجاري.</footer>
+
+<script>
+/* ---------- تبويب واجهات ---------- */
+const tabBtns = document.querySelectorAll('.tab-btn');
+const panels = { chair: document.getElementById('panel-chair'), shoe: document.getElementById('panel-shoe') };
+tabBtns.forEach(b=>{
+  b.addEventListener('click', ()=>{
+    tabBtns.forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    const t = b.dataset.tab;
+    Object.values(panels).forEach(p=>p.classList.remove('active'));
+    panels[t].classList.add('active');
+  });
+});
+
+/* ---------- تبديل كرسي ---------- */
+const chairMV = document.getElementById('chairMV');
+const swapChair = document.getElementById('swapChair');
+let chairAlt = false;
+swapChair.addEventListener('click', ()=>{
+  chairAlt = !chairAlt;
+  chairMV.src = chairAlt ? "https://modelviewer.dev/shared-assets/models/ChairRed.glb" : "https://modelviewer.dev/shared-assets/models/Chair.glb";
+  swapChair.textContent = chairAlt ? "عودة" : "تبديل نموذج";
+});
+
+/* ---------- Shoe Try-on (تصحيح MediaPipe) ---------- */
+const videoEl = document.getElementById('cam');
+const canvasEl = document.getElementById('debug');
+const ctx = canvasEl.getContext('2d');
+const shoeImg = document.getElementById('shoeOverlay');
+const startBtn = document.getElementById('startShoe');
+const stopBtn  = document.getElementById('stopShoe');
+const cameraSelect = document.getElementById('cameraSelect');
+const resSelect = document.getElementById('resSelect');
+const smoothSelect = document.getElementById('smoothSelect');
+const debugSelect = document.getElementById('debugSelect');
+const footSelect = document.getElementById('footSelect');
+const scaleRange = document.getElementById('scaleRange');
+const secureWarn = document.getElementById('secureWarn');
+
+let localStream = null;
+let running = false;
+let poseInstance = null;
+let rafId = null;
+
+/* DPR-aware canvas sizing */
+function setCanvasSize() {
+  const rect = videoEl.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvasEl.style.width = rect.width + 'px';
+  canvasEl.style.height = rect.height + 'px';
+  canvasEl.width = Math.round(rect.width * dpr);
+  canvasEl.height = Math.round(rect.height * dpr);
+}
+
+/* mirror-aware normalized -> pixel */
+function toPixel(xNorm, yNorm, w, h) {
+  const x = (1 - xNorm) * w;
+  const y = yNorm * h;
+  return {x, y};
+}
+
+/* Low-pass smoother */
+class LowPass {
+  constructor(alpha=0.7){ this.alpha = alpha; this.val = null; }
+  update(obj){
+    if (this.val === null) { this.val = JSON.parse(JSON.stringify(obj)); return this.val; }
+    // scalar or object
+    if (typeof obj === 'number') {
+      this.val = this.alpha * obj + (1-this.alpha) * this.val;
+    } else {
+      for (const k in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj,k)) {
+          this.val[k] = this.alpha * obj[k] + (1-this.alpha) * (this.val[k] ?? obj[k]);
+        }
+      }
+    }
+    return this.val;
+  }
+}
+
+/* maintain filters */
+const posFilter = new LowPass(0.7);
+const angleFilter = new LowPass(0.7);
+const sizeFilter = new LowPass(0.7);
+
+/* foot geometry */
+function getFootPoints(landmarks, which='auto'){
+  if (!landmarks || landmarks.length < 33) return null;
+  const L = {ankle:landmarks[27], heel:landmarks[29], toe:landmarks[31]};
+  const R = {ankle:landmarks[28], heel:landmarks[30], toe:landmarks[32]};
+  function score(p){
+    const dx = p.ankle.x - 0.5, dy = p.ankle.y - 0.5;
+    const dist = Math.hypot(dx,dy);
+    return (1 - dist) + (p.ankle.visibility||0) + (p.toe.visibility||0);
+  }
+  if (which === 'left') return L;
+  if (which === 'right') return R;
+  return score(L) >= score(R) ? L : R;
+}
+
+/* place shoe overlay */
+function placeShoe(landmarks, manualScale=1, debug=false){
+  if (!landmarks) { shoeImg.style.display='none'; clearCanvas(); return; }
+  const which = footSelect.value;
+  const foot = getFootPoints(landmarks, which);
+  if (!foot || !foot.ankle || !foot.toe || !foot.heel) { shoeImg.style.display='none'; clearCanvas(); return; }
+
+  const rect = videoEl.getBoundingClientRect();
+  if (!rect.width) return;
+
+  // center between ankle and toe
+  const cx = (foot.ankle.x + foot.toe.x)/2;
+  const cy = (foot.ankle.y + foot.toe.y)/2;
+  const dx = foot.toe.x - foot.ankle.x;
+  const dy = foot.toe.y - foot.ankle.y;
+  const angleRad = Math.atan2(dy, dx);
+  let angleDeg = -angleRad * 180/Math.PI;
+
+  const footLen = Math.hypot(foot.toe.x - foot.heel.x, foot.toe.y - foot.heel.y); // normalized
+  const basePx = footLen * rect.width;
+  const targetW = Math.max(60, basePx * 2.0) * manualScale;
+  const targetH = Math.max(28, basePx * 0.95) * manualScale;
+
+  const pixel = toPixel(cx, cy, rect.width, rect.height);
+  let target = {x: pixel.x, y: pixel.y + targetH*0.06, angle: angleDeg, w: targetW, h: targetH};
+
+  // smoothing alpha from UI
+  const alpha = parseFloat(smoothSelect.value);
+  posFilter.alpha = alpha; angleFilter.alpha = alpha; sizeFilter.alpha = alpha;
+
+  const spos = posFilter.update({x: target.x, y: target.y});
+  const sAngleObj = angleFilter.update({a: target.angle});
+  const ssize = sizeFilter.update({w: target.w, h: target.h});
+
+  // apply to DOM
+  shoeImg.style.display = 'block';
+  shoeImg.style.width = `${ssize.w}px`;
+  shoeImg.style.height = `${ssize.h}px`;
+  const left = spos.x - ssize.w/2;
+  const top = spos.y - ssize.h/2;
+  shoeImg.style.transform = `translate(${left}px, ${top}px) rotate(${sAngleObj.a}deg)`;
+
+  if (debug) drawDebug(foot, left, top, ssize.w, ssize.h);
+  else clearCanvas();
+}
+
+/* draw debug */
+function clearCanvas(){
+  const dpr = window.devicePixelRatio || 1;
+  ctx.save(); ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0, canvasEl.width/dpr, canvasEl.height/dpr); ctx.restore();
+}
+
+function drawDebug(foot, left, top, w, h) {
+  const rect = videoEl.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  ctx.save(); ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0, canvasEl.width/dpr, canvasEl.height/dpr);
+
+  const pAnkle = toPixel(foot.ankle.x, foot.ankle.y, rect.width, rect.height);
+  const pToe = toPixel(foot.toe.x, foot.toe.y, rect.width, rect.height);
+  const pHeel = toPixel(foot.heel.x, foot.heel.y, rect.width, rect.height);
+
+  ctx.strokeStyle = 'rgba(45,212,191,0.95)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(pAnkle.x, pAnkle.y); ctx.lineTo(pToe.x, pToe.y); ctx.stroke();
+
+  ctx.fillStyle = 'rgba(125,211,252,0.95)';
+  ctx.beginPath(); ctx.arc(pAnkle.x, pAnkle.y, 6,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(pToe.x, pToe.y, 6,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(pHeel.x, pHeel.y, 6,0,Math.PI*2); ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255,200,100,0.9)'; ctx.lineWidth=2;
+  ctx.strokeRect(left, top, w, h);
+
+  ctx.restore();
+}
+
+/* init MediaPipe Pose safely (use window.Pose) */
+async function initPoseSafe(){
+  if (poseInstance) return poseInstance;
+  if (typeof window === 'undefined' || !window.Pose) {
+    throw new Error('MediaPipe Pose library غير محمّل أو غير متاح.');
+  }
+  const P = window.Pose;
+  poseInstance = new P({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` });
+  poseInstance.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.55,
+    minTrackingConfidence: 0.5,
+  });
+  poseInstance.onResults((results) => {
+    const debugOn = debugSelect.value === 'on';
+    if (results && results.poseLandmarks) {
+      placeShoe(results.poseLandmarks, parseFloat(scaleRange.value), debugOn);
+    } else {
+      shoeImg.style.display = 'none';
+      clearCanvas();
+    }
+  });
+  return poseInstance;
+}
+
+/* start/stop logic using window.Camera from camera_utils */
+async function startCamera(){
+  try {
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      secureWarn.style.display = 'block';
+    } else secureWarn.style.display = 'none';
+
+    await initPoseSafe();
+
+    const facing = cameraSelect.value; // 'environment' or 'user'
+    const [w,h] = resSelect.value.split('x').map(v=>parseInt(v,10));
+    const constraints = { audio:false, video: { width: {ideal: w}, height:{ideal: h}, facingMode: { ideal: facing } } };
+
+    // stop existing
+    await stopCamera();
+
+    localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    videoEl.srcObject = localStream;
+    await videoEl.play();
+
+    setCanvasSize();
+    running = true;
+
+    // Create Camera util if available
+    if (window.Camera) {
+      // We still use our own RAF loop to call pose.send(image)
+      // but Camera util provides convenience (we already have stream)
+    }
+
+    // create loop
+    const loop = async ()=>{
+      if (!running) return;
+      try {
+        await poseInstance.send({ image: videoEl });
+      } catch(e){ /* ignore frame errors */ }
+      rafId = requestAnimationFrame(loop);
+    };
+    rafId = requestAnimationFrame(loop);
+  } catch (err) {
+    console.error('فشل تشغيل الكاميرا:', err);
+    alert('فشل تشغيل الكاميرا: ' + (err.message || err));
+  }
+}
+
+async function stopCamera(){
+  running = false;
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (localStream) {
+    localStream.getTracks().forEach(t=>t.stop());
+    localStream = null;
+  }
+  videoEl.pause();
+  videoEl.srcObject = null;
+  shoeImg.style.display = 'none';
+  clearCanvas();
+}
+
+/* events */
+startBtn.addEventListener('click', async ()=>{
+  try {
+    await initPoseSafe();
+    await startCamera();
+  } catch(e){
+    alert('خطأ: ' + (e.message || e));
+  }
+});
+stopBtn.addEventListener('click', stopCamera);
+
+/* window resize */
+window.addEventListener('resize', ()=>{ setCanvasSize(); });
+
+/* initial canvas size attempt */
+setTimeout(setCanvasSize, 300);
+
+/* cleanup on page hide */
+document.addEventListener('visibilitychange', ()=>{
+  if (document.hidden) {
+    if (running) stopCamera();
+  }
+});
+</script>
+</body>
+</html>
             <select id="smoothSelect">
               <option value="0.85">قوي</option>
               <option value="0.7" selected>متوسط</option>
@@ -498,3 +825,4 @@ document.addEventListener('visibilitychange', ()=>{
 </script>
 </body>
 </html>
+
